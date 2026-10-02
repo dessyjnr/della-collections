@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 function clean(v, max = 500) { return String(v ?? '').trim().slice(0, max); }
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
@@ -11,6 +12,7 @@ export async function POST(request) {
   const paymentMethod = ['OPAY','MONIEPOINT'].includes(body.paymentMethod) ? body.paymentMethod : 'OPAY';
   const paymentProof = typeof body.paymentProof === 'string' && body.paymentProof.startsWith('data:image/') && body.paymentProof.length <= 4_000_000 ? body.paymentProof : null;
   const rawItems = Array.isArray(body.items) ? body.items : [];
+  const currentUser = await getCurrentUser(request);
   if (!customerName || !phone || !address || !city || !rawItems.length) return NextResponse.json({ error: 'Name, phone, address, city and at least one item are required.' }, { status: 400 });
   const ids = [...new Set(rawItems.map(x => String(x.productId || '')))].filter(Boolean);
   const products = await prisma.product.findMany({ where: { id: { in: ids } } });
@@ -32,7 +34,7 @@ export async function POST(request) {
         const result = await tx.product.updateMany({ where: { id: item.productId, stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } });
         if (result.count !== 1) throw new Error(`STOCK:${item.name}`);
       }
-      return tx.order.create({ data: { customerName, phone, email, address, city, note, subtotal, deliveryFee, total, paymentMethod, paymentProof, deliveryZone, latitude: Number.isFinite(latitude) ? latitude : null, longitude: Number.isFinite(longitude) ? longitude : null, items: { create: items } }, include: { items: true } });
+      return tx.order.create({ data: { userId: currentUser?.id || null, customerName, phone, email, address, city, note, subtotal, deliveryFee, total, paymentMethod, paymentProof, deliveryZone, latitude: Number.isFinite(latitude) ? latitude : null, longitude: Number.isFinite(longitude) ? longitude : null, items: { create: items } }, include: { items: true } });
     });
   } catch (err) {
     if (String(err.message).startsWith('STOCK:')) return NextResponse.json({ error: 'One of the products just sold out. Please refresh your cart.' }, { status: 409 });
