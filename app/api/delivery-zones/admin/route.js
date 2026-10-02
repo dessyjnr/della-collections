@@ -1,0 +1,7 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { isAdmin } from '@/lib/auth';
+export async function GET(request){if(!await isAdmin(request))return NextResponse.json({error:'Unauthorized'},{status:401});return NextResponse.json(await prisma.deliveryZone.findMany({orderBy:{createdAt:'desc'}}));}
+export async function POST(request){if(!await isAdmin(request))return NextResponse.json({error:'Unauthorized'},{status:401});const b=await request.json().catch(()=>({}));const name=String(b.name||'').trim();const fee=Math.max(0,Number(b.fee||0));if(!name||!Number.isFinite(fee))return NextResponse.json({error:'Zone name and fee are required.'},{status:400});return NextResponse.json(await prisma.deliveryZone.create({data:{name,fee}}),{status:201});}
+export async function PATCH(request){if(!await isAdmin(request))return NextResponse.json({error:'Unauthorized'},{status:401});const b=await request.json().catch(()=>({}));if(!b.id)return NextResponse.json({error:'Zone id required.'},{status:400});return NextResponse.json(await prisma.deliveryZone.update({where:{id:String(b.id)},data:{name:String(b.name).trim(),fee:Math.max(0,Number(b.fee||0)),active:Boolean(b.active)}}));}
+export async function DELETE(request){if(!await isAdmin(request))return NextResponse.json({error:'Unauthorized'},{status:401});const id=new URL(request.url).searchParams.get('id');if(!id)return NextResponse.json({error:'Zone id required.'},{status:400});await prisma.deliveryZone.delete({where:{id}});return NextResponse.json({ok:true});}
