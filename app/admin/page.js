@@ -19,6 +19,9 @@ const money = (value) => `₦${Number(value || 0).toLocaleString()}`;
 
 export default function Admin() {
   const [authed, setAuthed] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
+  const [passwordMsg, setPasswordMsg] = useState('');
   const [login, setLogin] = useState({ email: '', password: '' });
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -172,6 +175,17 @@ export default function Admin() {
     }
   };
 
+  const changePassword = async (event) => {
+    event.preventDefault();
+    setPasswordMsg('');
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) return setPasswordMsg('New passwords do not match.');
+    const response = await fetch('/api/auth/change-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(passwordForm) });
+    const data = await response.json();
+    if (!response.ok) return setPasswordMsg(data.error || 'Could not change password.');
+    setPasswordMsg('Password changed successfully.');
+    setPasswordForm({ currentPassword:'', newPassword:'', confirmPassword:'' });
+  };
+
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     setAuthed(false);
@@ -273,6 +287,7 @@ export default function Admin() {
         </a>
 
         <div>
+          <button className="reset" onClick={() => setSettingsOpen(!settingsOpen)}>Settings</button>{' '}
           <button className="reset" onClick={logout}>
             Sign out
           </button>{' '}
@@ -282,6 +297,16 @@ export default function Admin() {
         </div>
       </header>
 
+      {settingsOpen && <section className="ordersPanel" style={{maxWidth:1180,margin:'30px auto 0'}}>
+        <div className="listHead"><div><p className="eyebrow">ACCOUNT SETTINGS</p><h2>Change admin password</h2></div></div>
+        <form className="zoneForm" onSubmit={changePassword}>
+          <input type="password" placeholder="Current password" required value={passwordForm.currentPassword} onChange={e=>setPasswordForm({...passwordForm,currentPassword:e.target.value})}/>
+          <input type="password" placeholder="New password (8+ characters)" required minLength={8} value={passwordForm.newPassword} onChange={e=>setPasswordForm({...passwordForm,newPassword:e.target.value})}/>
+          <input type="password" placeholder="Confirm new password" required minLength={8} value={passwordForm.confirmPassword} onChange={e=>setPasswordForm({...passwordForm,confirmPassword:e.target.value})}/>
+          <button className="adminButton">Update password</button>
+        </form>
+        {passwordMsg && <p className="adminMsg">{passwordMsg}</p>}
+      </section>}
       <div className="adminWrap">
         <div className="adminIntro">
           <p className="eyebrow">STORE MANAGEMENT</p>
